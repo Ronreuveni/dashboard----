@@ -816,6 +816,42 @@ function buildTextHtml(taskId, field, currentValue, placeholder) {
         onblur="inlineUpdate('${taskId}','${field}',this.value)" onkeydown="if(event.key==='Enter')this.blur()">`;
 }
 
+function buildNotesHtml(taskId, currentValue) {
+    const escaped = escapeHtml(currentValue || '');
+    return `<div class="notes-field">
+        <textarea id="notes-${taskId}" class="inline-input notes-textarea" placeholder="הערות..."
+            onblur="inlineUpdate('${taskId}','notes',this.value)"
+            onkeydown="handleNotesBullet(event,'${taskId}')">${escaped}</textarea>
+        <button type="button" class="bullet-btn" onclick="insertBullet('${taskId}')" title="הוסף בולט">•</button>
+    </div>`;
+}
+
+function insertBullet(taskId) {
+    const ta = document.getElementById('notes-' + taskId);
+    if (!ta) return;
+    const pos = ta.selectionStart;
+    const val = ta.value;
+    const newVal = val.slice(0, pos) + '• ' + val.slice(pos);
+    ta.value = newVal;
+    ta.selectionStart = ta.selectionEnd = pos + 2;
+    ta.focus();
+}
+
+function handleNotesBullet(e, taskId) {
+    if (e.key !== 'Enter') return;
+    const ta = e.target;
+    const pos = ta.selectionStart;
+    const val = ta.value;
+    const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
+    const currentLine = val.slice(lineStart, pos);
+    if (currentLine.startsWith('• ')) {
+        e.preventDefault();
+        const newVal = val.slice(0, pos) + '\n• ' + val.slice(pos);
+        ta.value = newVal;
+        ta.selectionStart = ta.selectionEnd = pos + 3;
+    }
+}
+
 function buildNumberHtml(taskId, field, currentValue, placeholder) {
     return `<input type="number" class="inline-input inline-input-sm" value="${currentValue || ''}" placeholder="${placeholder || '0'}" step="0.5" min="0"
         onblur="inlineUpdate('${taskId}','${field}',this.value)" onkeydown="if(event.key==='Enter')this.blur()">`;
@@ -831,7 +867,9 @@ function buildSubtasksHtml(task) {
     subs.forEach((st, i) => {
         html += `<div class="subtask-item ${st.done ? 'done' : ''}">
             <input type="checkbox" ${st.done ? 'checked' : ''} onchange="toggleSubtask('${task.id}',${i})">
-            <span>${escapeHtml(st.text)}</span>
+            <input type="text" class="subtask-text-input" value="${escapeHtml(st.text)}"
+                onblur="updateSubtaskText('${task.id}',${i},this.value)"
+                onkeydown="if(event.key==='Enter')this.blur()">
             <button class="btn-icon" style="font-size:12px;margin-right:auto" onclick="removeSubtask('${task.id}',${i})">✕</button>
         </div>`;
     });
@@ -870,6 +908,16 @@ function removeSubtask(taskId, index) {
     task.subtasks.splice(index, 1);
     saveData(STORAGE_KEYS.tasks, tasks);
     refreshCurrentView();
+}
+
+function updateSubtaskText(taskId, index, newText) {
+    if (!newText.trim()) return;
+    const tasks = getTasks();
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || !task.subtasks[index]) return;
+    if (task.subtasks[index].text === newText) return;
+    task.subtasks[index].text = newText;
+    saveData(STORAGE_KEYS.tasks, tasks);
 }
 
 // ===== Custom statuses =====
@@ -1119,7 +1167,7 @@ function renderTaskRow(task, projectOpts, statuses, priorities) {
                     ${buildTextHtml(task.id, 'description', task.description, 'תיאור המשימה...')}
                     ${linkIndicator}
                 </div>
-                ${buildTextHtml(task.id, 'notes', task.notes, 'הערות...')}
+                ${buildNotesHtml(task.id, task.notes)}
                 ${buildSubtasksHtml(task)}
             </div>
         </div>`;

@@ -696,17 +696,18 @@ kbd {
 .today-hero-content { position: relative; z-index: 1; }
 
 .today-greeting {
-    font-size: 26px;
+    font-size: 32px;
     font-weight: 800;
-    margin-bottom: 6px;
-    letter-spacing: -0.3px;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
 }
 
 .today-summary {
-    font-size: 14px;
-    opacity: 0.92;
+    font-size: 17px;
+    font-weight: 500;
+    opacity: 1;
     max-width: 480px;
-    line-height: 1.55;
+    line-height: 1.6;
 }
 
 .today-progress {
@@ -1971,6 +1972,71 @@ kbd {
 .empty-state-text { font-size: 14px; }
 
 /* ===== Subtasks ===== */
+/* Notes with bullets */
+.notes-field {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+}
+
+.notes-textarea {
+    flex: 1;
+    resize: none;
+    min-height: 32px;
+    max-height: 120px;
+    line-height: 1.5;
+    overflow-y: auto;
+    font-family: inherit;
+}
+
+.bullet-btn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card-solid);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.bullet-btn:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* Editable subtask text */
+.subtask-text-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--text-secondary);
+    padding: 0 2px;
+    outline: none;
+    min-width: 0;
+}
+
+.subtask-text-input:focus {
+    background: var(--card-solid);
+    border-radius: 3px;
+    color: var(--text-primary);
+}
+
+.subtask-item.done .subtask-text-input {
+    text-decoration: line-through;
+}
+
 .subtasks-area { margin-top: 6px; padding-right: 16px; }
 
 .subtask-item {
