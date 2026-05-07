@@ -783,9 +783,12 @@ kbd {
 
 .today-col { display: flex; flex-direction: column; gap: 18px; }
 
-/* Team column: styled sections per status */
+/* Team & manager columns: keep section-header heights aligned so status-group-headers
+   line up horizontally across columns regardless of which column has buttons. */
+.today-col-main .section-header,
 .today-col-team .section-header {
-    margin-bottom: 10px;
+    min-height: 32px;
+    margin-bottom: 14px;
 }
 .today-col-team h3 {
     font-size: 13px;
