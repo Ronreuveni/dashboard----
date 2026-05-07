@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio OS · ניהול מתקדם</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="bg-grid"></div>
+    <div class="bg-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="הרחב/כווץ תפריט">
+            <span class="sidebar-toggle-icon">‹</span>
+        </button>
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-mark">
+                    <span class="logo-core"></span>
+                </div>
+                <div class="logo-text">
+                    <div class="logo-title">Studio OS</div>
+                    <div class="logo-sub">מערכת ניהול מתקדמת</div>
+                </div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-view="today">
+                <span class="nav-icon">☀</span>
+                <span class="nav-label">היום</span>
+                <span class="nav-badge" id="nav-badge-today">0</span>
+            </a>
+            <a href="#" class="nav-item" data-view="tasks">
+                <span class="nav-icon">☰</span>
+                <span class="nav-label">משימות</span>
+                <span class="nav-badge" id="nav-badge-tasks">0</span>
+            </a>
+            <a href="#" class="nav-item" data-view="team">
+                <span class="nav-icon">♟</span>
+                <span class="nav-label">צוות</span>
+            </a>
+            <a href="#" class="nav-item" data-view="projects">
+                <span class="nav-icon">◧</span>
+                <span class="nav-label">פרויקטים</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button class="sidebar-action" onclick="openCommandPalette()" title="חיפוש מהיר (Ctrl+K)">
+                <span>⌘</span> חיפוש
+            </button>
+            <button class="sidebar-action" onclick="openSettings()" title="הגדרות וגיבויים">
+                <span>⚙</span> הגדרות
+            </button>
+            <div id="backup-indicator" class="backup-indicator" title="סטטוס גיבוי">
+                <span class="backup-dot"></span>
+                <span class="backup-text">מסונכרן</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-right">
+                <h1 id="page-title">היום</h1>
+                <span class="date-display" id="current-date"></span>
+            </div>
+            <div class="topbar-center">
+                <div class="quick-search" onclick="openCommandPalette()">
+                    <span class="quick-search-icon">⌕</span>
+                    <span class="quick-search-text">חיפוש משימה, פרויקט, צוות...</span>
+                    <kbd>Ctrl</kbd><kbd>K</kbd>
+                </div>
+            </div>
+            <div class="topbar-left" id="topbar-actions">
+                <button class="btn btn-primary" id="btn-add-task" onclick="openTaskModal()">
+                    <span>+</span> משימה חדשה
+                </button>
+            </div>
+        </header>
+
+        <!-- Today View -->
+        <div class="view active" id="view-today">
+            <div class="today-hero">
+                <div class="today-hero-content">
+                    <div class="today-greeting" id="today-greeting">בוקר טוב</div>
+                    <div class="today-summary" id="today-summary">טוען...</div>
+                </div>
+                <div class="today-progress">
+                    <svg class="progress-ring" viewBox="0 0 120 120">
+                        <circle class="progress-ring-bg" cx="60" cy="60" r="52"/>
+                        <circle class="progress-ring-fill" id="today-ring" cx="60" cy="60" r="52" stroke-dasharray="327" stroke-dashoffset="327"/>
+                    </svg>
+                    <div class="progress-ring-label">
+                        <div class="progress-ring-value" id="today-pct">0%</div>
+                        <div class="progress-ring-caption">יום</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="today-grid">
+                <div class="today-col today-col-main">
+                    <div class="section">
+                        <div class="section-header">
+                            <h2><span class="accent-bar manager"></span> משימות ניהול</h2>
+                            <button class="btn btn-ghost btn-sm" onclick="openTaskModal(null, true)">+ משימת ניהול</button>
+                        </div>
+                        <div id="today-manager-list" class="task-list"></div>
+                    </div>
+                </div>
+
+                <div class="today-col today-col-team">
+                    <div class="section">
+                        <div class="section-header">
+                            <h2><span class="accent-bar inprogress"></span> משימות צוות</h2>
+                        </div>
+                        <div id="today-team-list" class="task-list"></div>
+                    </div>
+                </div>
+
+                <div class="today-col today-col-side">
+                    <div class="today-bottom-row">
+                        <div class="quick-add-card">
+                            <div class="quick-add-header">הוספה מהירה</div>
+                            <input type="text" id="quick-add-input" placeholder="הקלד משימה ולחץ Enter..." class="quick-add-input">
+                            <div class="quick-add-chips">
+                                <button class="chip chip-urgent" data-qa="priority" data-value="דחוף">דחוף</button>
+                                <button class="chip chip-high" data-qa="priority" data-value="גבוה">גבוה</button>
+                                <button class="chip chip-normal active" data-qa="priority" data-value="רגיל">רגיל</button>
+                            </div>
+                            <select id="quick-add-project" class="quick-add-select"></select>
+                            <div class="quick-add-hint">Enter להוספה · Shift+Enter לניהול</div>
+                        </div>
+
+                        <div class="mini-stats" id="mini-stats"></div>
+
+                        <div class="section reminders-section">
+                            <div class="section-header">
+                                <h3>תזכורות</h3>
+                            </div>
+                            <div id="reminders-list" class="reminders-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="today-col today-col-completed">
+                    <div class="section">
+                        <div class="section-header">
+                            <h2><span class="accent-bar done"></span> הושלמו ✓</h2>
+                            <span class="count-pill" id="count-completed">0</span>
+                        </div>
+                        <div id="today-completed-list" class="task-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasks View -->
+        <div class="view" id="view-tasks">
+            <div class="section">
+                <div class="section-header">
+                    <h2>טבלת משימות</h2>
+                    <div class="filter-group">
+                        <select id="filter-status" onchange="renderTaskTable()">
+                            <option value="all">כל הסטטוסים</option>
+                        </select>
+                        <select id="filter-priority" onchange="renderTaskTable()">
+                            <option value="all">כל העדיפויות</option>
+                        </select>
+                        <select id="filter-project" onchange="renderTaskTable()">
+                            <option value="all">כל הפרויקטים</option>
+                        </select>
+                        <input type="text" id="filter-search" placeholder="חיפוש חופשי..." oninput="renderTaskTable()">
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="task-table" id="task-table">
+                        <thead>
+                            <tr>
+                                <th>פרויקט</th>
+                                <th class="col-wide">עדיפות</th>
+                                <th class="col-wide">סטטוס</th>
+                                <th>בניהול של</th>
+                                <th>משימה</th>
+                                <th>הערות</th>
+                                <th>דיווח</th>
+                                <th>שעות</th>
+                                <th>תאריך סיום</th>
+                                <th>סבב</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team View -->
+        <div class="view" id="view-team">
+            <div id="team-groups-container"></div>
+            <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-ghost" onclick="addTeamGroup()">+ קבוצת צוות חדשה</button>
+                <button class="btn btn-ghost" onclick="addTeamDivider()">+ מפריד / כותרת ביניים</button>
+                <button class="btn btn-ghost" onclick="resetHierarchy()" title="אפס למבנה ברירת המחדל">↻ איפוס למבנה ברירת מחדל</button>
+            </div>
+        </div>
+
+        <!-- Projects View -->
+        <div class="view" id="view-projects">
+            <div class="section">
+                <div class="section-header">
+                    <h2>פרויקטים פעילים</h2>
+                    <button class="btn btn-ghost" onclick="openProjectModal()">+ פרויקט חדש</button>
+                </div>
+                <div class="projects-grid" id="projects-grid"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Command Palette -->
+    <div class="command-palette-overlay" id="command-palette">
+        <div class="command-palette">
+            <div class="command-input-wrap">
+                <span class="command-icon">⌕</span>
+                <input type="text" id="command-input" placeholder="חפש משימה, פרויקט, איש צוות או פקודה..." autocomplete="off">
+                <kbd class="command-hint">ESC</kbd>
+            </div>
+            <div class="command-results" id="command-results"></div>
+            <div class="command-footer">
+                <span><kbd>↑</kbd><kbd>↓</kbd> ניווט</span>
+                <span><kbd>Enter</kbd> בחר</span>
+                <span><kbd>Ctrl</kbd>+<kbd>N</kbd> משימה חדשה</span>
+                <span><kbd>Ctrl</kbd>+<kbd>B</kbd> גיבוי</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div class="modal-overlay" id="task-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">משימה חדשה</h3>
+                <button class="modal-close" onclick="closeTaskModal()">&times;</button>
+            </div>
+            <form id="task-form" onsubmit="saveTask(event)">
+                <input type="hidden" id="task-id">
+                <input type="hidden" id="task-is-manager" value="">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>פרויקט</label>
+                        <div style="display:flex;gap:8px;align-items:flex-end">
+                            <select id="task-project" required onchange="handleProjectSelect(this)" style="flex:1">
+                                <option value="">בחר פרויקט...</option>
+                            </select>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="openNewProjectModal()">+ חדש</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>עדיפות</label>
+                        <select id="task-priority" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>סטטוס</label>
+                        <select id="task-status" required></select>
+                    </div>
+                    <div class="form-group" id="assignee-group">
+                        <label>בניהול של</label>
+                        <select id="task-assignee">
+                            <option value="">בחר...</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>תיאור המשימה</label>
+                        <input type="text" id="task-description" required placeholder="תיאור קצר של המשימה">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>הערות</label>
+                        <textarea id="task-notes" rows="3" placeholder="הערות נוספות..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>שורת דיווח</label>
+                        <input type="url" id="task-report-link" placeholder="קישור לדיווח">
+                    </div>
+                    <div class="form-group">
+                        <label>שעות ביצוע</label>
+                        <input type="number" id="task-hours" step="0.5" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>תאריך סיום</label>
+                        <input type="date" id="task-deadline">
+                    </div>
+                    <div class="form-group">
+                        <label>סבב תיקונים</label>
+                        <input type="number" id="task-revisions" min="0" value="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeTaskModal()">ביטול</button>
+                    <button type="submit" class="btn btn-primary">שמור</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Team Member Profile Modal -->
+    <div class="modal-overlay" id="team-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="team-modal-title">פרופיל איש צוות</h3>
+                <button class="modal-close" onclick="closeTeamModal()">&times;</button>
+            </div>
+            <form id="team-form" onsubmit="saveTeamProfile(event)">
+                <input type="hidden" id="team-member-id">
+                <div class="team-profile-header" id="team-profile-header"></div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>שם</label>
+                        <input type="text" id="team-name-input" placeholder="שם מלא" required>
+                    </div>
+                    <div class="form-group">
+                        <label>תפקיד</label>
+                        <input type="text" id="team-role-input" placeholder="תפקיד">
+                    </div>
+                    <div class="form-group">
+                        <label>אחוז משרה</label>
+                        <input type="number" id="team-availability" min="0" max="100" placeholder="100">
+                    </div>
+                    <div class="form-group">
+                        <label>סטטוס זמינות</label>
+                        <select id="team-status-select">
+                            <option value="זמין">זמין</option>
+                            <option value="עמוס">עמוס</option>
+                            <option value="חופשה">חופשה</option>
+                            <option value="לא זמין">לא זמין</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>קבוצה</label>
+                        <select id="team-group-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>צבע</label>
+                        <input type="color" id="team-color-input" value="#2d6a4f">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>חוזקות ובקשות / צרכים</label>
+                        <textarea id="team-strengths" rows="3" placeholder="חוזקות מרכזיות, בקשות, צרכים, נושאים לשיפור..."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>עיסוק בארגון</label>
+                        <textarea id="team-personal" rows="2" placeholder="תחומי אחריות, פרויקטים עיקריים, מה אותו/ה מעסיק בארגון..."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>מידע כללי</label>
+                        <textarea id="team-general" rows="2" placeholder="מידע כללי, הערות..."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>כלים ומיומנויות</label>
+                        <input type="text" id="team-skills-input" placeholder="הפרד בפסיקים: סטוריליין, קמטזיה, קמפוס...">
+                    </div>
+                </div>
+                <div class="section" style="padding:0 0 10px 0">
+                    <h4 style="margin-bottom:10px">משימות פתוחות</h4>
+                    <div id="team-member-tasks"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="deleteTeamMember()" id="btn-delete-member" style="margin-left:auto">מחיקת איש צוות</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeTeamModal()">ביטול</button>
+                    <button type="submit" class="btn btn-primary">שמור</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Project Modal -->
+    <div class="modal-overlay" id="project-modal">
+        <div class="modal modal-small">
+            <div class="modal-header">
+                <h3>פרויקט חדש</h3>
+                <button class="modal-close" onclick="closeProjectModal()">&times;</button>
+            </div>
+            <form id="project-form" onsubmit="saveProject(event)">
+                <div class="form-group">
+                    <label>שם הפרויקט</label>
+                    <input type="text" id="project-name" required placeholder="שם הפרויקט">
+                </div>
+                <div class="form-group">
+                    <label>תיאור</label>
+                    <textarea id="project-description" rows="2" placeholder="תיאור קצר"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>צבע</label>
+                    <input type="color" id="project-color" value="#2d6a4f">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeProjectModal()">ביטול</button>
+                    <button type="submit" class="btn btn-primary">שמור</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Status Modal -->
+    <div class="modal-overlay" id="custom-status-modal">
+        <div class="modal modal-small">
+            <div class="modal-header">
+                <h3 id="custom-status-title">ניהול סטטוסים</h3>
+                <button class="modal-close" onclick="closeCustomStatusModal()">&times;</button>
+            </div>
+            <div style="padding:20px 24px">
+                <div id="custom-status-list"></div>
+                <div style="display:flex;gap:8px;margin-top:12px">
+                    <input type="text" id="new-custom-status" placeholder="סטטוס חדש..." style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-family:Heebo;font-size:14px;background:var(--card-bg);color:var(--text-primary)">
+                    <button class="btn btn-primary btn-sm" onclick="addCustomStatus()">הוסף</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>הגדרות וגיבויים</h3>
+                <button class="modal-close" onclick="closeSettings()">&times;</button>
+            </div>
+            <div style="padding:20px 24px">
+                <div class="settings-section">
+                    <h4>גיבוי אוטומטי</h4>
+                    <p class="settings-hint">בכל פתיחה של המערכת, אם נעשו שינויים מאז הגיבוי האחרון, יורד קובץ JSON עם כל הנתונים. הקבצים נשמרים אצלך במחשב בתיקיית ההורדות.</p>
+                    <div class="settings-row">
+                        <span>גיבוי אחרון:</span>
+                        <strong id="last-backup-info">—</strong>
+                    </div>
+                    <div class="settings-row">
+                        <span>סטטוס שינויים:</span>
+                        <strong id="dirty-status-info">—</strong>
+                    </div>
+                    <div class="settings-actions">
+                        <button class="btn btn-primary btn-sm" onclick="manualBackup()">הורד גיבוי עכשיו</button>
+                        <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+                            שחזר מגיבוי...
+                            <input type="file" accept=".json" onchange="restoreBackup(event)" style="display:none">
+                        </label>
+                        <button class="btn btn-ghost btn-sm" onclick="toggleAutoBackup()" id="btn-auto-backup">
+                            <span id="auto-backup-state">פעיל</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4>התאמה אישית</h4>
+                    <div class="settings-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="openCustomStatusModal('status')">ניהול סטטוסים</button>
+                        <button class="btn btn-secondary btn-sm" onclick="openCustomStatusModal('priority')">ניהול עדיפויות</button>
+                        <button class="btn btn-secondary btn-sm" onclick="toggleTheme()" id="btn-theme">
+                            <span id="theme-label">מצב בהיר</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4>קיצורי מקלדת</h4>
+                    <div class="shortcuts-grid">
+                        <div class="shortcut"><kbd>Ctrl</kbd>+<kbd>K</kbd><span>פלטת פקודות</span></div>
+                        <div class="shortcut"><kbd>Ctrl</kbd>+<kbd>N</kbd><span>משימה חדשה</span></div>
+                        <div class="shortcut"><kbd>Ctrl</kbd>+<kbd>B</kbd><span>גיבוי מיידי</span></div>
+                        <div class="shortcut"><kbd>Ctrl</kbd>+<kbd>1-5</kbd><span>מעבר בין דפים</span></div>
+                        <div class="shortcut"><kbd>Esc</kbd><span>סגירת חלונות</span></div>
+                    </div>
+                </div>
+
+                <div class="settings-section danger-zone">
+                    <h4>אזור מסוכן</h4>
+                    <button class="btn btn-danger btn-sm" onclick="resetAllData()">איפוס כל הנתונים</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
