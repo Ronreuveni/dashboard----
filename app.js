@@ -818,37 +818,42 @@ function buildTextHtml(taskId, field, currentValue, placeholder) {
 
 function buildNotesHtml(taskId, currentValue) {
     const escaped = escapeHtml(currentValue || '');
-    return `<div class="notes-field">
-        <textarea id="notes-${taskId}" class="inline-input notes-textarea" placeholder="הערות..."
-            onblur="inlineUpdate('${taskId}','notes',this.value)"
-            onkeydown="handleNotesBullet(event,'${taskId}')">${escaped}</textarea>
-        <button type="button" class="bullet-btn" onclick="insertBullet('${taskId}')" title="הוסף בולט">•</button>
-    </div>`;
+    return `<textarea id="notes-${taskId}" class="inline-input notes-textarea" placeholder="הערות... (התחל שורה ב- או * לבולט)"
+        onblur="inlineUpdate('${taskId}','notes',this.value)"
+        oninput="autoBulletNotes(this)"
+        onkeydown="handleNotesBullet(event)">${escaped}</textarea>`;
 }
 
-function insertBullet(taskId) {
-    const ta = document.getElementById('notes-' + taskId);
-    if (!ta) return;
+function autoBulletNotes(ta) {
     const pos = ta.selectionStart;
     const val = ta.value;
-    const newVal = val.slice(0, pos) + '• ' + val.slice(pos);
-    ta.value = newVal;
-    ta.selectionStart = ta.selectionEnd = pos + 2;
-    ta.focus();
+    const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
+    const currentLine = val.slice(lineStart, pos);
+    const m = currentLine.match(/^([-*])\s$/);
+    if (m) {
+        ta.value = val.slice(0, lineStart) + '• ' + val.slice(pos);
+        ta.selectionStart = ta.selectionEnd = lineStart + 2;
+    }
 }
 
-function handleNotesBullet(e, taskId) {
+function handleNotesBullet(e) {
     if (e.key !== 'Enter') return;
     const ta = e.target;
     const pos = ta.selectionStart;
     const val = ta.value;
     const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
     const currentLine = val.slice(lineStart, pos);
+    if (currentLine === '• ') {
+        e.preventDefault();
+        ta.value = val.slice(0, lineStart) + val.slice(pos);
+        ta.selectionStart = ta.selectionEnd = lineStart;
+        return;
+    }
     if (currentLine.startsWith('• ')) {
         e.preventDefault();
-        const newVal = val.slice(0, pos) + '\n• ' + val.slice(pos);
-        ta.value = newVal;
-        ta.selectionStart = ta.selectionEnd = pos + 3;
+        const insertion = '\n• ';
+        ta.value = val.slice(0, pos) + insertion + val.slice(pos);
+        ta.selectionStart = ta.selectionEnd = pos + insertion.length;
     }
 }
 
@@ -867,10 +872,10 @@ function buildSubtasksHtml(task) {
     subs.forEach((st, i) => {
         html += `<div class="subtask-item ${st.done ? 'done' : ''}">
             <input type="checkbox" ${st.done ? 'checked' : ''} onchange="toggleSubtask('${task.id}',${i})">
-            <input type="text" class="subtask-text-input" value="${escapeHtml(st.text)}"
-                onblur="updateSubtaskText('${task.id}',${i},this.value)"
-                onkeydown="if(event.key==='Enter')this.blur()">
-            <button class="btn-icon" style="font-size:12px;margin-right:auto" onclick="removeSubtask('${task.id}',${i})">✕</button>
+            <span class="subtask-text" tabindex="0"
+                onclick="startEditSubtask(this,'${task.id}',${i})"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();startEditSubtask(this,'${task.id}',${i})}">${escapeHtml(st.text)}</span>
+            <button class="btn-icon subtask-remove" onclick="removeSubtask('${task.id}',${i})" title="מחק">✕</button>
         </div>`;
     });
     html += `<div class="subtask-add">
@@ -911,13 +916,44 @@ function removeSubtask(taskId, index) {
 }
 
 function updateSubtaskText(taskId, index, newText) {
-    if (!newText.trim()) return;
+    const trimmed = (newText || '').trim();
+    if (!trimmed) return;
     const tasks = getTasks();
     const task = tasks.find(t => t.id === taskId);
     if (!task || !task.subtasks[index]) return;
-    if (task.subtasks[index].text === newText) return;
-    task.subtasks[index].text = newText;
+    if (task.subtasks[index].text === trimmed) return;
+    task.subtasks[index].text = trimmed;
     saveData(STORAGE_KEYS.tasks, tasks);
+    refreshCurrentView();
+}
+
+function startEditSubtask(span, taskId, index) {
+    if (span.querySelector('input')) return;
+    const original = span.textContent;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'subtask-edit-input';
+    input.value = original;
+    span.textContent = '';
+    span.appendChild(input);
+    input.focus();
+    input.select();
+    let finished = false;
+    const finish = (save) => {
+        if (finished) return;
+        finished = true;
+        const newVal = input.value;
+        if (save && newVal.trim() && newVal.trim() !== original) {
+            updateSubtaskText(taskId, index, newVal);
+        } else {
+            span.textContent = original;
+        }
+    };
+    input.addEventListener('blur', () => finish(true));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
 }
 
 // ===== Custom statuses =====
