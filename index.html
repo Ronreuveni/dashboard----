@@ -438,6 +438,10 @@
                 <button class="modal-close" onclick="closeSettings()">&times;</button>
             </div>
             <div style="padding:20px 24px">
+                <div class="settings-section" id="cloud-sync-section">
+                    <!-- Populated by renderCloudSettings() -->
+                </div>
+
                 <div class="settings-section">
                     <h4>גיבוי אוטומטי</h4>
                     <p class="settings-hint">בכל פתיחה של המערכת, אם נעשו שינויים מאז הגיבוי האחרון, יורד קובץ JSON עם כל הנתונים. הקבצים נשמרים אצלך במחשב בתיקיית ההורדות.</p>
@@ -495,5 +499,6 @@
     <div class="toast-container" id="toast-container"></div>
 
     <script src="app.js"></script>
+    <script src="cloud-sync.js"></script>
 </body>
 </html>
