@@ -874,7 +874,7 @@ function buildSubtasksHtml(task) {
             <input type="checkbox" ${st.done ? 'checked' : ''} onchange="toggleSubtask('${task.id}',${i})">
             <span class="subtask-text" tabindex="0"
                 onclick="startEditSubtask(this,'${task.id}',${i})"
-                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();startEditSubtask(this,'${task.id}',${i})}">${escapeHtml(st.text)}</span>
+                onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();startEditSubtask(this,'${task.id}',${i})}">${escapeHtml(st.text)}</span>
             <button class="btn-icon subtask-remove" onclick="removeSubtask('${task.id}',${i})" title="מחק">✕</button>
         </div>`;
     });
