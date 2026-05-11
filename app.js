@@ -394,6 +394,10 @@ function restoreBackup(e) {
             refreshCurrentView();
             refreshBackupIndicator();
             updateSettingsInfo();
+            // Push restored data to cloud immediately so it isn't overwritten by the next pull.
+            if (typeof cloudPush === 'function' && typeof cloudIsConfigured === 'function' && cloudIsConfigured()) {
+                cloudPush();
+            }
         } catch (err) {
             toast('שגיאה בקריאת הקובץ', 'error');
         }
