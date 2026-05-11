@@ -1325,7 +1325,8 @@ kbd {
 
 /* ===== Table ===== */
 .table-wrapper {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: calc(100vh - 220px);
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -1343,6 +1344,9 @@ kbd {
 .task-table thead {
     background: var(--accent-gradient);
     color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 .task-table th {
@@ -1353,6 +1357,7 @@ kbd {
     font-size: 12px;
     letter-spacing: 0.3px;
     text-transform: uppercase;
+    background: inherit;
 }
 
 .task-table td {
@@ -1982,12 +1987,15 @@ kbd {
 .notes-textarea {
     width: 100%;
     resize: vertical;
+    height: 32px;
     min-height: 32px;
     max-height: 140px;
     line-height: 1.55;
     font-family: inherit;
     white-space: pre-wrap;
+    overflow-y: hidden;
 }
+.notes-textarea:focus { overflow-y: auto; }
 
 /* Editable subtask text — click to edit */
 .subtask-text {

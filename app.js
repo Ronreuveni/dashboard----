@@ -822,10 +822,17 @@ function buildTextHtml(taskId, field, currentValue, placeholder) {
 
 function buildNotesHtml(taskId, currentValue) {
     const escaped = escapeHtml(currentValue || '');
-    return `<textarea id="notes-${taskId}" class="inline-input notes-textarea" placeholder="הערות... (התחל שורה ב- או * לבולט)"
+    const lines = (currentValue || '').split('\n').length;
+    return `<textarea id="notes-${taskId}" class="inline-input notes-textarea" placeholder="הערות... (התחל שורה ב- או * לבולט)" rows="${Math.max(1, Math.min(lines, 6))}"
         onblur="inlineUpdate('${taskId}','notes',this.value)"
-        oninput="autoBulletNotes(this)"
+        oninput="autoBulletNotes(this);autoGrowNotes(this)"
+        onfocus="autoGrowNotes(this)"
         onkeydown="handleNotesBullet(event)">${escaped}</textarea>`;
+}
+
+function autoGrowNotes(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
 }
 
 function autoBulletNotes(ta) {
