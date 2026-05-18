@@ -881,7 +881,8 @@ function buildSubtasksHtml(task) {
     const subs = task.subtasks || [];
     let html = '<div class="subtasks-area">';
     subs.forEach((st, i) => {
-        html += `<div class="subtask-item ${st.done ? 'done' : ''}">
+        html += `<div class="subtask-item ${st.done ? 'done' : ''}" draggable="true" data-task-id="${task.id}" data-subtask-index="${i}">
+            <span class="subtask-drag-handle" title="גרור לשינוי סדר">⠿</span>
             <input type="checkbox" ${st.done ? 'checked' : ''} onchange="toggleSubtask('${task.id}',${i})">
             <span class="subtask-text" tabindex="0"
                 onclick="startEditSubtask(this,'${task.id}',${i})"
@@ -1287,11 +1288,16 @@ function renderTaskTable() {
     const COLS = 11;
     if (filtered.length === 0) { tbody.innerHTML = `<tr><td colspan="${COLS}" style="text-align:center;padding:30px;color:var(--text-light)">לא נמצאו משימות</td></tr>`; return; }
 
-    // Group by status, then sort by createdAt desc inside each group
+    // Group by status, then sort by sortOrder (drag order) → createdAt desc inside each group
     const groups = {};
     filtered.forEach(t => { if (!groups[t.status]) groups[t.status] = []; groups[t.status].push(t); });
     Object.keys(groups).forEach(s => {
-        groups[s].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        groups[s].sort((a, b) => {
+            const soA = a.sortOrder != null ? a.sortOrder : 9999;
+            const soB = b.sortOrder != null ? b.sortOrder : 9999;
+            if (soA !== soB) return soA - soB;
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
     });
     const orderedStatuses = Object.keys(groups).sort((a, b) => statusRank(a) - statusRank(b));
 
@@ -1306,7 +1312,7 @@ function renderTaskTable() {
 
     tbody.innerHTML = orderedStatuses.map(status => {
         const cls = getStatusCssClass(status);
-        const rows = groups[status].map(task => `<tr data-task-id="${task.id}">
+        const rows = groups[status].map(task => `<tr data-task-id="${task.id}" data-status="${escapeHtml(task.status)}" draggable="true">
             <td>${buildSelectHtml(task.id,'projectId',task.projectId,projectOpts)}</td>
             <td>${buildSelectHtml(task.id,'priority',task.priority,priorities)}</td>
             <td>${buildSelectHtml(task.id,'status',task.status,statuses)}</td>
@@ -1327,6 +1333,120 @@ function renderTaskTable() {
             <span class="count-pill">${groups[status].length}</span>
         </td></tr>${rows}`;
     }).join('');
+
+    initTaskTableDrag();
+}
+
+// Drag & drop for the tasks-view table — same rules as the today view:
+// reorder within a status group, or drop on a row in a different status group
+// to move the task to that status.
+function initTaskTableDrag() {
+    const tbody = document.getElementById('task-table-body');
+    if (!tbody) return;
+    let draggedEl = null;
+    let draggedSub = null;
+
+    tbody.addEventListener('dragstart', (e) => {
+        const sub = e.target.closest('.subtask-item[draggable]');
+        if (sub) {
+            draggedSub = sub;
+            sub.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.stopPropagation();
+            return;
+        }
+        const row = e.target.closest('tr[data-task-id][draggable]');
+        if (!row) return;
+        draggedEl = row;
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', row.dataset.taskId);
+    });
+    tbody.addEventListener('dragend', () => {
+        if (draggedEl) draggedEl.classList.remove('dragging');
+        if (draggedSub) draggedSub.classList.remove('dragging');
+        tbody.querySelectorAll('tr, .subtask-item').forEach(el => el.classList.remove('drag-over-above','drag-over-below'));
+        draggedEl = null;
+        draggedSub = null;
+    });
+    tbody.addEventListener('dragover', (e) => {
+        if (draggedSub) {
+            const subTarget = e.target.closest('.subtask-item[draggable]');
+            if (!subTarget || subTarget === draggedSub) return;
+            if (subTarget.dataset.taskId !== draggedSub.dataset.taskId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            tbody.querySelectorAll('.subtask-item').forEach(el => el.classList.remove('drag-over-above','drag-over-below'));
+            const rect = subTarget.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            subTarget.classList.add(e.clientY < midY ? 'drag-over-above' : 'drag-over-below');
+            return;
+        }
+        const target = e.target.closest('tr[data-task-id][draggable]');
+        if (!target || target === draggedEl) return;
+        e.preventDefault();
+        tbody.querySelectorAll('tr').forEach(el => el.classList.remove('drag-over-above','drag-over-below'));
+        const rect = target.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        target.classList.add(e.clientY < midY ? 'drag-over-above' : 'drag-over-below');
+    });
+    tbody.addEventListener('drop', (e) => {
+        if (draggedSub) {
+            const subTarget = e.target.closest('.subtask-item[draggable]');
+            if (!subTarget || subTarget === draggedSub) return;
+            if (subTarget.dataset.taskId !== draggedSub.dataset.taskId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            subTarget.classList.remove('drag-over-above','drag-over-below');
+            const fromIdx = parseInt(draggedSub.dataset.subtaskIndex, 10);
+            const toIdx = parseInt(subTarget.dataset.subtaskIndex, 10);
+            const rect = subTarget.getBoundingClientRect();
+            const insertAfter = e.clientY > rect.top + rect.height / 2;
+            reorderSubtasks(draggedSub.dataset.taskId, fromIdx, toIdx, insertAfter);
+            return;
+        }
+        const target = e.target.closest('tr[data-task-id][draggable]');
+        if (!target || !draggedEl || target === draggedEl) return;
+        e.preventDefault();
+        target.classList.remove('drag-over-above','drag-over-below');
+        const fromId = draggedEl.dataset.taskId;
+        const toId = target.dataset.taskId;
+        const rect = target.getBoundingClientRect();
+        const insertAfter = e.clientY > rect.top + rect.height / 2;
+        reorderTasksInTable(fromId, toId, insertAfter);
+    });
+}
+
+function reorderTasksInTable(fromId, toId, insertAfter) {
+    const tasks = getTasks();
+    const fromTask = tasks.find(t => t.id === fromId);
+    const toTask = tasks.find(t => t.id === toId);
+    if (!fromTask || !toTask) return;
+
+    if (fromTask.status !== toTask.status) {
+        const history = fromTask.history || [];
+        history.push({ timestamp: new Date().toISOString(), field: 'status', oldValue: fromTask.status, newValue: toTask.status, editedBy: 'drag' });
+        fromTask.status = toTask.status;
+        fromTask.history = history;
+    }
+
+    const targetStatus = toTask.status;
+    // Tasks view shows non-manager tasks only — keep that scope for sortOrder.
+    const groupTasks = tasks
+        .filter(t => !t.isManager && t.status === targetStatus && t.id !== fromId)
+        .sort((a, b) => {
+            const soA = a.sortOrder != null ? a.sortOrder : 9999;
+            const soB = b.sortOrder != null ? b.sortOrder : 9999;
+            if (soA !== soB) return soA - soB;
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+    const toIdx = groupTasks.findIndex(t => t.id === toId);
+    const insertIdx = insertAfter ? toIdx + 1 : toIdx;
+    groupTasks.splice(insertIdx, 0, fromTask);
+    groupTasks.forEach((t, i) => { t.sortOrder = i; });
+
+    saveData(STORAGE_KEYS.tasks, tasks);
+    refreshCurrentView();
 }
 
 // ===== Drag for tasks =====
@@ -1334,8 +1454,17 @@ function initTaskDrag(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
     let draggedEl = null;
+    let draggedSub = null;
 
     container.addEventListener('dragstart', (e) => {
+        const sub = e.target.closest('.subtask-item[draggable]');
+        if (sub) {
+            draggedSub = sub;
+            sub.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.stopPropagation();
+            return;
+        }
         const item = e.target.closest('.task-item[draggable]');
         if (!item) return;
         draggedEl = item;
@@ -1345,47 +1474,145 @@ function initTaskDrag(containerId) {
     });
     container.addEventListener('dragend', () => {
         if (draggedEl) draggedEl.classList.remove('dragging');
-        container.querySelectorAll('.task-item').forEach(el => el.classList.remove('drag-over-above','drag-over-below'));
+        if (draggedSub) draggedSub.classList.remove('dragging');
+        container.querySelectorAll('.task-item, .subtask-item').forEach(el => el.classList.remove('drag-over-above','drag-over-below'));
+        container.querySelectorAll('.status-group').forEach(el => el.classList.remove('drag-over-group'));
         draggedEl = null;
+        draggedSub = null;
     });
     container.addEventListener('dragover', (e) => {
+        if (draggedSub) {
+            const subTarget = e.target.closest('.subtask-item[draggable]');
+            if (!subTarget || subTarget === draggedSub) return;
+            if (subTarget.dataset.taskId !== draggedSub.dataset.taskId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            container.querySelectorAll('.subtask-item').forEach(el => el.classList.remove('drag-over-above','drag-over-below'));
+            const rect = subTarget.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            subTarget.classList.add(e.clientY < midY ? 'drag-over-above' : 'drag-over-below');
+            return;
+        }
         e.preventDefault();
-        const target = e.target.closest('.task-item[draggable]');
-        if (!target || target === draggedEl) return;
-        container.querySelectorAll('.task-item').forEach(el => el.classList.remove('drag-over-above','drag-over-below'));
-        const rect = target.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        target.classList.add(e.clientY < midY ? 'drag-over-above' : 'drag-over-below');
+        const taskTarget = e.target.closest('.task-item[draggable]');
+        if (taskTarget && taskTarget !== draggedEl) {
+            // Hovering over a specific task
+            container.querySelectorAll('.task-item').forEach(el => el.classList.remove('drag-over-above','drag-over-below'));
+            container.querySelectorAll('.status-group').forEach(el => el.classList.remove('drag-over-group'));
+            const rect = taskTarget.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            taskTarget.classList.add(e.clientY < midY ? 'drag-over-above' : 'drag-over-below');
+        } else {
+            // Hovering over status-group area (header, gaps, empty space)
+            const groupTarget = e.target.closest('.status-group');
+            if (groupTarget) {
+                container.querySelectorAll('.task-item').forEach(el => el.classList.remove('drag-over-above','drag-over-below'));
+                container.querySelectorAll('.status-group').forEach(el => el.classList.remove('drag-over-group'));
+                groupTarget.classList.add('drag-over-group');
+            }
+        }
     });
     container.addEventListener('drop', (e) => {
+        if (draggedSub) {
+            const subTarget = e.target.closest('.subtask-item[draggable]');
+            if (!subTarget || subTarget === draggedSub) return;
+            if (subTarget.dataset.taskId !== draggedSub.dataset.taskId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            subTarget.classList.remove('drag-over-above','drag-over-below');
+            const fromIdx = parseInt(draggedSub.dataset.subtaskIndex, 10);
+            const toIdx = parseInt(subTarget.dataset.subtaskIndex, 10);
+            const rect = subTarget.getBoundingClientRect();
+            const insertAfter = e.clientY > rect.top + rect.height / 2;
+            reorderSubtasks(draggedSub.dataset.taskId, fromIdx, toIdx, insertAfter);
+            return;
+        }
         e.preventDefault();
-        const target = e.target.closest('.task-item[draggable]');
-        if (!target || !draggedEl || target === draggedEl) return;
-        target.classList.remove('drag-over-above','drag-over-below');
-        const fromId = draggedEl.dataset.taskId;
-        const toId = target.dataset.taskId;
-        const rect = target.getBoundingClientRect();
-        const insertAfter = e.clientY > rect.top + rect.height / 2;
-        reorderTasks(fromId, toId, insertAfter, containerId);
+        // Drop on a specific task item
+        const taskTarget = e.target.closest('.task-item[draggable]');
+        if (taskTarget && draggedEl && taskTarget !== draggedEl) {
+            taskTarget.classList.remove('drag-over-above','drag-over-below');
+            const fromId = draggedEl.dataset.taskId;
+            const toId = taskTarget.dataset.taskId;
+            const rect = taskTarget.getBoundingClientRect();
+            const insertAfter = e.clientY > rect.top + rect.height / 2;
+            reorderTasks(fromId, toId, insertAfter, containerId);
+            return;
+        }
+        // Drop on status-group area → append to that status group
+        const groupTarget = e.target.closest('.status-group');
+        if (groupTarget && draggedEl) {
+            groupTarget.classList.remove('drag-over-group');
+            const targetStatus = groupTarget.dataset.status;
+            appendTaskToGroup(draggedEl.dataset.taskId, targetStatus, containerId);
+        }
     });
+}
+
+function reorderSubtasks(taskId, fromIdx, toIdx, insertAfter) {
+    const tasks = getTasks();
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || !Array.isArray(task.subtasks)) return;
+    const arr = task.subtasks;
+    if (fromIdx < 0 || fromIdx >= arr.length || toIdx < 0 || toIdx >= arr.length || fromIdx === toIdx) return;
+    const [moved] = arr.splice(fromIdx, 1);
+    let targetIdx = (fromIdx < toIdx) ? toIdx - 1 : toIdx;
+    if (insertAfter) targetIdx += 1;
+    targetIdx = Math.max(0, Math.min(targetIdx, arr.length));
+    arr.splice(targetIdx, 0, moved);
+    saveData(STORAGE_KEYS.tasks, tasks);
+    refreshCurrentView();
 }
 
 function reorderTasks(fromId, toId, insertAfter, containerId) {
     const tasks = getTasks();
     const isManager = containerId.includes('manager');
-    const listTasks = tasks.filter(t => t.isManager === isManager && t.status !== 'הושלם');
-    const listIds = listTasks.map(t => t.id);
-    const fromIdx = listIds.indexOf(fromId);
-    const toIdx = listIds.indexOf(toId);
-    if (fromIdx === -1 || toIdx === -1) return;
-    listIds.splice(fromIdx, 1);
-    let newIdx = listIds.indexOf(toId);
-    if (insertAfter) newIdx += 1;
-    listIds.splice(newIdx, 0, fromId);
-    listIds.forEach((id, i) => {
-        const task = tasks.find(t => t.id === id);
-        if (task) task.sortOrder = i;
-    });
+    const fromTask = tasks.find(t => t.id === fromId);
+    const toTask = tasks.find(t => t.id === toId);
+    if (!fromTask || !toTask) return;
+
+    // If target is in a different status group → change source's status accordingly.
+    if (fromTask.status !== toTask.status) {
+        const history = fromTask.history || [];
+        history.push({ timestamp: new Date().toISOString(), field: 'status', oldValue: fromTask.status, newValue: toTask.status, editedBy: 'drag' });
+        fromTask.status = toTask.status;
+        fromTask.history = history;
+    }
+
+    // Re-sequence sortOrder within the target status group (same column).
+    const targetStatus = toTask.status;
+    const groupTasks = tasks
+        .filter(t => t.isManager === isManager && t.status === targetStatus && t.id !== fromId)
+        .sort((a, b) => {
+            const soA = a.sortOrder != null ? a.sortOrder : 9999;
+            const soB = b.sortOrder != null ? b.sortOrder : 9999;
+            if (soA !== soB) return soA - soB;
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+    const toIdx = groupTasks.findIndex(t => t.id === toId);
+    const insertIdx = insertAfter ? toIdx + 1 : toIdx;
+    groupTasks.splice(insertIdx, 0, fromTask);
+    groupTasks.forEach((t, i) => { t.sortOrder = i; });
+
+    saveData(STORAGE_KEYS.tasks, tasks);
+    refreshCurrentView();
+}
+
+// Append a task at the end of a status group (used when dropping on group header/empty space)
+function appendTaskToGroup(taskId, targetStatus, containerId) {
+    const tasks = getTasks();
+    const isManager = containerId.includes('manager');
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    if (task.status !== targetStatus) {
+        const history = task.history || [];
+        history.push({ timestamp: new Date().toISOString(), field: 'status', oldValue: task.status, newValue: targetStatus, editedBy: 'drag' });
+        task.status = targetStatus;
+        task.history = history;
+    }
+    const groupTasks = tasks.filter(t => t.isManager === isManager && t.status === targetStatus && t.id !== taskId);
+    const maxOrder = groupTasks.reduce((m, t) => Math.max(m, t.sortOrder != null ? t.sortOrder : 0), -1);
+    task.sortOrder = maxOrder + 1;
     saveData(STORAGE_KEYS.tasks, tasks);
     refreshCurrentView();
 }

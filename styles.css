@@ -762,7 +762,7 @@ kbd {
 
 .today-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
     gap: 24px;
     align-items: start;
     width: 100%;
@@ -1803,7 +1803,8 @@ kbd {
 }
 
 .task-item .inline-select { min-width: 70px; max-width: 110px; font-size: 12px; padding: 4px 6px; }
-.task-item .cell-project .inline-select { min-width: 90px; max-width: 140px; font-weight: 500; }
+.task-item .cell-project { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.task-item .cell-project .inline-select { min-width: 90px; max-width: none; width: auto; font-weight: 500; }
 .task-item .cell-status .inline-select,
 .task-item .cell-priority .inline-select { min-width: 62px; max-width: 86px; }
 .task-item .cell-assignee .inline-select { min-width: 74px; max-width: 106px; }
@@ -1958,6 +1959,22 @@ kbd {
     padding: 10px 14px;
 }
 
+/* Manager column: more compact display than team tasks */
+.today-col-main .task-item { padding: 6px 10px !important; }
+.today-col-main .task-item-top { gap: 4px; }
+.today-col-main .task-item-body { padding-right: 2px; gap: 2px; }
+.today-col-main .task-item-body .task-title-row .inline-input { font-size: 13px; font-weight: 600; }
+.today-col-main .task-item-body .inline-input[placeholder="הערות..."],
+.today-col-main .task-item-body .notes-textarea { font-size: 11.5px; min-height: 24px; height: 24px; }
+.today-col-main .task-item .inline-select { font-size: 11px; padding: 3px 5px; min-width: 58px; max-width: 96px; }
+.today-col-main .task-item .cell-status .inline-select,
+.today-col-main .task-item .cell-priority .inline-select { min-width: 56px; max-width: 76px; }
+.today-col-main .task-item .cell-assignee .inline-select { min-width: 66px; max-width: 92px; }
+.today-col-main .task-item .task-check { width: 18px; height: 18px; }
+.today-col-main .task-item .btn-icon { width: 22px; height: 22px; font-size: 12px; }
+.today-col-main .task-item .subtasks-area { margin-top: 3px; padding-right: 12px; }
+.today-col-main .task-item .subtask-item { font-size: 11.5px; padding: 2px 0; }
+
 .task-table .inline-select,
 .task-table .inline-input { font-size: 12px; padding: 4px 6px; }
 .task-table .inline-input-sm { width: 55px; }
@@ -2092,6 +2109,36 @@ kbd {
 
 .task-item.drag-over-above { border-top: 3px solid var(--accent) !important; }
 .task-item.drag-over-below { border-bottom: 3px solid var(--accent) !important; }
+.status-group.drag-over-group {
+    background: rgba(99,102,241,0.06);
+    outline: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    transition: background 0.15s, outline 0.15s;
+}
+
+/* Drag & drop indicators for the tasks-view table */
+.task-table tbody tr[draggable="true"] { cursor: grab; }
+.task-table tbody tr[draggable="true"]:active { cursor: grabbing; }
+.task-table tbody tr.dragging { opacity: 0.4; }
+.task-table tbody tr.drag-over-above td { box-shadow: inset 0 3px 0 0 var(--accent); }
+.task-table tbody tr.drag-over-below td { box-shadow: inset 0 -3px 0 0 var(--accent); }
+
+/* Subtask drag & drop */
+.subtask-item[draggable="true"] { cursor: grab; }
+.subtask-item[draggable="true"]:active { cursor: grabbing; }
+.subtask-item.dragging { opacity: 0.4; }
+.subtask-item.drag-over-above { box-shadow: inset 0 2px 0 0 var(--accent); }
+.subtask-item.drag-over-below { box-shadow: inset 0 -2px 0 0 var(--accent); }
+.subtask-drag-handle {
+    color: var(--text-light);
+    font-size: 11px;
+    cursor: grab;
+    user-select: none;
+    flex-shrink: 0;
+    padding: 0 2px;
+}
+.subtask-drag-handle:hover { color: var(--accent); }
+.subtask-drag-handle:active { cursor: grabbing; }
 
 .task-drag { flex-shrink: 0; margin-left: 4px; }
 
