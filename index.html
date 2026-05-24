@@ -159,7 +159,18 @@
                     <div class="section">
                         <div class="section-header">
                             <h2><span class="accent-bar done"></span> הושלמו ✓</h2>
-                            <span class="count-pill" id="count-completed">0</span>
+                            <div style="display:flex;gap:8px;align-items:center">
+                                <select id="completed-sort" class="completed-sort-select" onchange="setCompletedSort(this.value)" title="סדר הצגת המשימות שהושלמו">
+                                    <option value="completedDesc">הושלמו לאחרונה (חדש ↑)</option>
+                                    <option value="completedAsc">הושלמו לאחרונה (ישן ↑)</option>
+                                    <option value="createdDesc">תאריך יצירה (חדש ↑)</option>
+                                    <option value="createdAsc">תאריך יצירה (ישן ↑)</option>
+                                    <option value="priority">לפי עדיפות</option>
+                                    <option value="project">לפי פרויקט</option>
+                                    <option value="name">לפי שם המשימה (א-ב)</option>
+                                </select>
+                                <span class="count-pill" id="count-completed">0</span>
+                            </div>
                         </div>
                         <div id="today-completed-list" class="task-list"></div>
                     </div>

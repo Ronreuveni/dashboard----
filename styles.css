@@ -840,6 +840,25 @@ kbd {
     font-family: 'JetBrains Mono', monospace;
 }
 
+.completed-sort-select {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: Heebo, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+.completed-sort-select:hover,
+.completed-sort-select:focus {
+    border-color: var(--accent);
+    color: var(--text-primary);
+    outline: none;
+}
+
 /* Quick add */
 .quick-add-card {
     background: var(--card-bg);

@@ -15,7 +15,8 @@ const STORAGE_KEYS = {
     lastBackupHash: 'studio_pro_last_backup_hash',
     autoBackup: 'studio_pro_auto_backup',
     theme: 'studio_pro_theme',
-    sidebarCollapsed: 'studio_pro_sidebar_collapsed'
+    sidebarCollapsed: 'studio_pro_sidebar_collapsed',
+    completedSort: 'studio_pro_completed_sort'
 };
 
 // ===== Sidebar toggle =====
@@ -1084,9 +1085,11 @@ function renderToday() {
     reminders.innerHTML = html;
 
     // Completed tasks section (bottom of page)
-    const completedTasks = tasks.filter(t => t.status === 'הושלם');
+    const completedTasks = sortCompletedTasks(tasks.filter(t => t.status === 'הושלם'), projects, priorities);
     const completedEl = document.getElementById('today-completed-list');
     const completedCountEl = document.getElementById('count-completed');
+    const completedSortEl = document.getElementById('completed-sort');
+    if (completedSortEl) completedSortEl.value = getCompletedSort();
     if (completedEl) {
         if (completedTasks.length === 0) {
             completedEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✓</div><div class="empty-state-text">טרם הושלמו משימות</div></div>';
@@ -1099,6 +1102,65 @@ function renderToday() {
     initTaskDrag('today-manager-list');
     initTaskDrag('today-team-list');
     initColumnDropZones();
+}
+
+// ===== Completed tasks sort preference =====
+function getCompletedSort() {
+    return localStorage.getItem(STORAGE_KEYS.completedSort) || 'completedDesc';
+}
+function setCompletedSort(value) {
+    localStorage.setItem(STORAGE_KEYS.completedSort, value);
+    renderToday();
+}
+function getCompletedTimestamp(task) {
+    if (task.completedAt) return new Date(task.completedAt).getTime();
+    // Backward compat: derive from history (latest change to status=הושלם)
+    if (Array.isArray(task.history)) {
+        for (let i = task.history.length - 1; i >= 0; i--) {
+            const h = task.history[i];
+            if (h && h.field === 'status' && h.newValue === 'הושלם') {
+                return new Date(h.timestamp).getTime();
+            }
+        }
+    }
+    return task.createdAt ? new Date(task.createdAt).getTime() : 0;
+}
+function sortCompletedTasks(tasks, projects, priorities) {
+    const mode = getCompletedSort();
+    const arr = tasks.slice();
+    const projectName = (id) => {
+        const p = projects.find(x => x.id === id);
+        return p ? p.name : '';
+    };
+    const priorityRank = (p) => {
+        const idx = priorities.indexOf(p);
+        return idx === -1 ? 999 : idx;
+    };
+    switch (mode) {
+        case 'completedAsc':
+            arr.sort((a, b) => getCompletedTimestamp(a) - getCompletedTimestamp(b));
+            break;
+        case 'createdDesc':
+            arr.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+            break;
+        case 'createdAsc':
+            arr.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+            break;
+        case 'priority':
+            arr.sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || getCompletedTimestamp(b) - getCompletedTimestamp(a));
+            break;
+        case 'project':
+            arr.sort((a, b) => projectName(a.projectId).localeCompare(projectName(b.projectId), 'he') || getCompletedTimestamp(b) - getCompletedTimestamp(a));
+            break;
+        case 'name':
+            arr.sort((a, b) => (a.description || '').localeCompare(b.description || '', 'he'));
+            break;
+        case 'completedDesc':
+        default:
+            arr.sort((a, b) => getCompletedTimestamp(b) - getCompletedTimestamp(a));
+            break;
+    }
+    return arr;
 }
 
 function renderTaskListInto(elementId, tasks, projectOpts, statuses, priorities, emphasized, emptyMsg) {
@@ -1237,11 +1299,13 @@ function quickToggleDone(taskId) {
 
     if (task.status === doneLabel) {
         task.status = statuses.find(s => s === 'בעבודה') || statuses[0];
+        task.completedAt = null;
         saveData(STORAGE_KEYS.tasks, tasks);
         refreshCurrentView();
         toastWithUndo('הוחזר לעבודה', undoFn, 'info');
     } else {
         task.status = doneLabel;
+        task.completedAt = new Date().toISOString();
         // Visual celebration — animate the row out, then rerender
         const row = document.querySelector(`.task-item[data-task-id="${taskId}"]`);
         if (row) {
@@ -2182,11 +2246,19 @@ function saveTask(e) {
                 }
             });
 
-            tasks[idx] = { ...oldTask, ...taskData, history };
+            let completedAt = oldTask.completedAt || null;
+            if (oldTask.status !== 'הושלם' && taskData.status === 'הושלם') {
+                completedAt = new Date().toISOString();
+            } else if (oldTask.status === 'הושלם' && taskData.status !== 'הושלם') {
+                completedAt = null;
+            }
+
+            tasks[idx] = { ...oldTask, ...taskData, history, completedAt };
         }
         toast('המשימה עודכנה', 'success');
     } else {
-        tasks.push({ id: generateId(), ...taskData, subtasks: [], history: [], createdAt: new Date().toISOString() });
+        const completedAt = taskData.status === 'הושלם' ? new Date().toISOString() : null;
+        tasks.push({ id: generateId(), ...taskData, subtasks: [], history: [], createdAt: new Date().toISOString(), completedAt });
         toast('המשימה נוספה', 'success');
     }
 
