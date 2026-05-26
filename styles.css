@@ -859,6 +859,158 @@ kbd {
     outline: none;
 }
 
+/* ===== Combobox (typeable searchable dropdown) ===== */
+.combobox {
+    position: relative;
+    width: 100%;
+}
+.combobox-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--card-solid);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.combobox-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+.combobox-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    left: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    background: var(--card-solid);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    z-index: 100;
+    display: none;
+}
+.combobox-dropdown.open { display: block; }
+.combobox-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+}
+.combobox-option:last-child { border-bottom: none; }
+.combobox-option:hover,
+.combobox-option.active {
+    background: var(--primary-bg);
+    color: var(--accent);
+}
+.combobox-create {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--accent);
+    background: rgba(99,102,241,0.06);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.combobox-create:hover { background: rgba(99,102,241,0.12); }
+.combobox-create-icon {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+}
+.combobox-empty {
+    padding: 12px;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 13px;
+}
+
+/* ===== Personal reminders (user-editable sticky notes) ===== */
+.my-reminders-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--shadow);
+}
+.my-reminders-add {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.my-reminders-add input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--card-solid);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+}
+.my-reminders-add input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+.my-reminders-add button {
+    flex-shrink: 0;
+    min-width: 36px;
+    font-size: 18px;
+    line-height: 1;
+}
+.my-reminders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+.my-reminder-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(245, 158, 11, 0.08);
+    border-right: 3px solid var(--inprogress);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text-primary);
+}
+.my-reminder-text {
+    flex: 1;
+    word-break: break-word;
+}
+.my-reminder-remove {
+    opacity: 0.5;
+    transition: opacity 0.15s, color 0.15s;
+}
+.my-reminder-remove:hover {
+    opacity: 1;
+    color: var(--urgent);
+}
+.my-reminders-empty {
+    padding: 16px 8px;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
 /* Quick add */
 .quick-add-card {
     background: var(--card-bg);
@@ -2158,6 +2310,13 @@ kbd {
 }
 .subtask-drag-handle:hover { color: var(--accent); }
 .subtask-drag-handle:active { cursor: grabbing; }
+
+/* Drag & drop indicators for the tasks-view table */
+.task-table tbody tr[draggable="true"] { cursor: grab; }
+.task-table tbody tr[draggable="true"]:active { cursor: grabbing; }
+.task-table tbody tr.dragging { opacity: 0.4; }
+.task-table tbody tr.drag-over-above td { box-shadow: inset 0 3px 0 0 var(--accent); }
+.task-table tbody tr.drag-over-below td { box-shadow: inset 0 -3px 0 0 var(--accent); }
 
 .task-drag { flex-shrink: 0; margin-left: 4px; }
 

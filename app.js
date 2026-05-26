@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
     statuses: 'studio_statuses',
     priorities: 'studio_priorities',
     teamGroups: 'studio_team_groups',
+    myReminders: 'studio_my_reminders',
     // Pro extras
     lastBackupDate: 'studio_pro_last_backup',
     lastBackupHash: 'studio_pro_last_backup_hash',
@@ -294,7 +295,8 @@ function collectAllData() {
         team: getTeam(),
         statuses: getStatuses(),
         priorities: getPriorities(),
-        teamGroups: getTeamGroups()
+        teamGroups: getTeamGroups(),
+        myReminders: getMyReminders()
     };
 }
 
@@ -389,6 +391,7 @@ function restoreBackup(e) {
             if (data.statuses) localStorage.setItem(STORAGE_KEYS.statuses, JSON.stringify(data.statuses));
             if (data.priorities) localStorage.setItem(STORAGE_KEYS.priorities, JSON.stringify(data.priorities));
             if (data.teamGroups) localStorage.setItem(STORAGE_KEYS.teamGroups, JSON.stringify(data.teamGroups));
+            if (data.myReminders) localStorage.setItem(STORAGE_KEYS.myReminders, JSON.stringify(data.myReminders));
             localStorage.setItem(STORAGE_KEYS.lastBackupHash, currentDataHash());
             toast('הנתונים שוחזרו בהצלחה', 'success');
             populateFilters();
@@ -721,29 +724,21 @@ function populateFilters() {
         dpSel.value = cv || 'all';
     }
 
-    ['filter-assignee-dashboard','task-assignee'].forEach(id => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        const cv = sel.value;
-        const isFilter = id !== 'task-assignee';
-        sel.innerHTML = isFilter ? '<option value="all">כל הצוות</option>' : '<option value="">בחר...</option>';
-        team.forEach(m => { const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; sel.appendChild(o); });
-        sel.value = cv || (isFilter ? 'all' : '');
-    });
+    const filterAssignee = document.getElementById('filter-assignee-dashboard');
+    if (filterAssignee) {
+        const cv = filterAssignee.value;
+        filterAssignee.innerHTML = '<option value="all">כל הצוות</option>';
+        team.forEach(m => { const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; filterAssignee.appendChild(o); });
+        filterAssignee.value = cv || 'all';
+    }
 
-    ['filter-project','task-project','quick-add-project'].forEach(id => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        const cv = sel.value;
-        const isFilter = id === 'filter-project';
-        const isQuick = id === 'quick-add-project';
-        sel.innerHTML = isFilter ? '<option value="all">כל הפרויקטים</option>' :
-                        isQuick ? '<option value="">ללא פרויקט</option>' :
-                        '<option value="">בחר פרויקט...</option>';
-        projects.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; sel.appendChild(o); });
-        if (!isFilter && !isQuick) { const o = document.createElement('option'); o.value = '__new__'; o.textContent = '+ פרויקט חדש...'; sel.appendChild(o); }
-        sel.value = cv || (isFilter ? 'all' : '');
-    });
+    const filterProj = document.getElementById('filter-project');
+    if (filterProj) {
+        const cv = filterProj.value;
+        filterProj.innerHTML = '<option value="all">כל הפרויקטים</option>';
+        projects.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; filterProj.appendChild(o); });
+        filterProj.value = cv || 'all';
+    }
 
     const taskStatus = document.getElementById('task-status');
     if (taskStatus) {
@@ -763,10 +758,187 @@ function populateFilters() {
     }
 }
 
-function handleProjectSelect(sel) {
-    const inp = document.getElementById('task-project-new');
-    if (sel.value === '__new__') { inp.style.display = 'block'; inp.focus(); inp.required = true; }
-    else { inp.style.display = 'none'; inp.value = ''; inp.required = false; }
+function handleProjectSelect(sel) { /* legacy no-op (project field is now a combobox) */ }
+
+// ===== Combobox (typeable, searchable dropdown with optional add-new) =====
+// opts: { inputId, hiddenId, dropdownId, getOptions, onCreate? }
+// getOptions returns [{ value, label }] sorted however; this fn sorts alphabetically (Hebrew-aware).
+function initCombobox(opts) {
+    const input = document.getElementById(opts.inputId);
+    const hidden = document.getElementById(opts.hiddenId);
+    const dropdown = document.getElementById(opts.dropdownId);
+    if (!input || !hidden || !dropdown) return;
+    if (input.dataset.cbInit === '1') return; // avoid double-binding
+    input.dataset.cbInit = '1';
+
+    let activeIdx = -1;
+    let currentOptions = [];
+
+    function getSorted() {
+        const all = opts.getOptions() || [];
+        return [...all].sort((a, b) => (a.label || '').localeCompare(b.label || '', 'he'));
+    }
+
+    function render() {
+        const query = (input.value || '').trim().toLowerCase();
+        const sorted = getSorted();
+        currentOptions = query
+            ? sorted.filter(o => (o.label || '').toLowerCase().includes(query))
+            : sorted;
+
+        let html = '';
+        if (query && opts.onCreate && !sorted.some(o => (o.label || '').toLowerCase() === query)) {
+            html += `<div class="combobox-create" data-create="1">
+                <span class="combobox-create-icon">+</span> הוסף חדש: <strong>${escapeHtml(input.value.trim())}</strong>
+            </div>`;
+        }
+        if (currentOptions.length > 0) {
+            html += currentOptions.map((o, i) =>
+                `<div class="combobox-option ${i === activeIdx ? 'active' : ''}" data-value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</div>`
+            ).join('');
+        } else if (!html) {
+            html = '<div class="combobox-empty">אין תוצאות</div>';
+        }
+        dropdown.innerHTML = html;
+    }
+
+    function show() { render(); dropdown.classList.add('open'); }
+    function hide() { dropdown.classList.remove('open'); activeIdx = -1; }
+
+    function selectValue(value) {
+        hidden.value = value;
+        const all = opts.getOptions() || [];
+        const found = all.find(o => o.value === value);
+        input.value = found ? found.label : '';
+        hide();
+    }
+
+    input.addEventListener('focus', show);
+    input.addEventListener('input', () => { activeIdx = -1; show(); });
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            // On blur, if typed text matches an existing label exactly → select it.
+            // Otherwise, if user didn't pick anything, clear hidden to empty
+            // (saveTask will handle creating a new project from raw input.value if needed).
+            const all = opts.getOptions() || [];
+            const exact = all.find(o => (o.label || '').toLowerCase() === (input.value || '').trim().toLowerCase());
+            if (exact) hidden.value = exact.value;
+            else if (!input.value.trim()) hidden.value = '';
+            hide();
+        }, 150);
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIdx = Math.min(activeIdx + 1, currentOptions.length - 1);
+            render();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIdx = Math.max(activeIdx - 1, -1);
+            render();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            const query = input.value.trim();
+            if (activeIdx >= 0 && currentOptions[activeIdx]) {
+                selectValue(currentOptions[activeIdx].value);
+            } else if (query && opts.onCreate) {
+                // Create new on Enter when typed text doesn't match
+                const all = opts.getOptions() || [];
+                const exact = all.find(o => (o.label || '').toLowerCase() === query.toLowerCase());
+                if (exact) selectValue(exact.value);
+                else {
+                    const newValue = opts.onCreate(query);
+                    if (newValue) selectValue(newValue);
+                }
+            } else if (currentOptions.length === 1) {
+                selectValue(currentOptions[0].value);
+            }
+        } else if (e.key === 'Escape') {
+            hide();
+        }
+    });
+    dropdown.addEventListener('mousedown', (e) => {
+        const option = e.target.closest('.combobox-option');
+        const create = e.target.closest('.combobox-create');
+        if (option) {
+            e.preventDefault();
+            selectValue(option.dataset.value);
+        } else if (create && opts.onCreate) {
+            e.preventDefault();
+            const newValue = opts.onCreate(input.value.trim());
+            if (newValue) selectValue(newValue);
+        }
+    });
+}
+
+function initTaskModalComboboxes() {
+    initCombobox({
+        inputId: 'task-project-input',
+        hiddenId: 'task-project',
+        dropdownId: 'task-project-dropdown',
+        getOptions: () => getProjects().map(p => ({ value: p.id, label: p.name })),
+        onCreate: (name) => {
+            const projects = getProjects();
+            const np = { id: generateId(), name, description: '', color: '#'+Math.floor(Math.random()*0xFFFFFF).toString(16).padStart(6,'0') };
+            projects.push(np);
+            saveData(STORAGE_KEYS.projects, projects);
+            populateFilters();
+            toast(`פרויקט "${name}" נוסף`, 'success');
+            return np.id;
+        }
+    });
+    initCombobox({
+        inputId: 'task-assignee-input',
+        hiddenId: 'task-assignee',
+        dropdownId: 'task-assignee-dropdown',
+        getOptions: () => getTeam().map(m => ({ value: m.id, label: m.name }))
+        // no onCreate — adding team members is done in the Team view
+    });
+}
+
+// Set the combobox visible text from a stored hidden value
+function setComboboxValue(inputId, hiddenId, value, options) {
+    const input = document.getElementById(inputId);
+    const hidden = document.getElementById(hiddenId);
+    if (!input || !hidden) return;
+    hidden.value = value || '';
+    const found = (options || []).find(o => o.value === value);
+    input.value = found ? found.label : '';
+}
+
+// ===== User-written reminders (personal sticky notes) =====
+function getMyReminders() { return loadData(STORAGE_KEYS.myReminders) || []; }
+function addMyReminder() {
+    const input = document.getElementById('my-reminder-input');
+    if (!input) return;
+    const text = (input.value || '').trim();
+    if (!text) return;
+    const list = getMyReminders();
+    list.push({ id: generateId(), text, createdAt: new Date().toISOString() });
+    saveData(STORAGE_KEYS.myReminders, list);
+    input.value = '';
+    renderMyReminders();
+}
+function removeMyReminder(id) {
+    const list = getMyReminders().filter(r => r.id !== id);
+    saveData(STORAGE_KEYS.myReminders, list);
+    renderMyReminders();
+}
+function renderMyReminders() {
+    const el = document.getElementById('my-reminders-list');
+    if (!el) return;
+    const list = getMyReminders();
+    if (list.length === 0) {
+        el.innerHTML = '<div class="my-reminders-empty">אין תזכורות. הקלד טקסט ולחץ Enter להוספה.</div>';
+        return;
+    }
+    el.innerHTML = list.map(r => `
+        <div class="my-reminder-item" data-id="${r.id}">
+            <span class="my-reminder-text">${escapeHtml(r.text)}</span>
+            <button class="btn-icon my-reminder-remove" onclick="removeMyReminder('${r.id}')" title="מחק">✕</button>
+        </div>
+    `).join('');
 }
 
 // ===== Badges =====
@@ -1098,6 +1270,9 @@ function renderToday() {
         }
     }
     if (completedCountEl) completedCountEl.textContent = completedTasks.length;
+
+    // Personal reminders (sticky notes, user-editable)
+    renderMyReminders();
 
     initTaskDrag('today-manager-list');
     initTaskDrag('today-team-list');
@@ -2153,12 +2328,18 @@ function updateProject(projectId, field, value) {
 // ===== Task CRUD =====
 function openTaskModal(taskId, isManager) {
     populateFilters();
+    initTaskModalComboboxes();
     document.getElementById('task-modal').classList.add('active');
     document.getElementById('task-form').reset();
     document.getElementById('task-id').value = '';
     document.getElementById('task-is-manager').value = isManager ? 'true' : '';
     document.getElementById('modal-title').textContent = isManager ? 'משימת ניהול חדשה' : 'משימה חדשה';
-    document.getElementById('assignee-group').style.display = 'none';
+    // Show the assignee field for all task types so it can be set on creation
+    document.getElementById('assignee-group').style.display = '';
+
+    // Reset comboboxes
+    setComboboxValue('task-project-input', 'task-project', '', getProjects().map(p => ({ value: p.id, label: p.name })));
+    setComboboxValue('task-assignee-input', 'task-assignee', '', getTeam().map(m => ({ value: m.id, label: m.name })));
 
     // Default priority for new tasks: 'רגיל'
     if (!taskId) {
@@ -2171,10 +2352,12 @@ function openTaskModal(taskId, isManager) {
             document.getElementById('modal-title').textContent = 'עריכת משימה';
             document.getElementById('task-id').value = task.id;
             document.getElementById('task-is-manager').value = task.isManager ? 'true' : '';
-            document.getElementById('task-project').value = task.projectId;
+            setComboboxValue('task-project-input', 'task-project', task.projectId,
+                getProjects().map(p => ({ value: p.id, label: p.name })));
+            setComboboxValue('task-assignee-input', 'task-assignee', task.assignee,
+                getTeam().map(m => ({ value: m.id, label: m.name })));
             document.getElementById('task-priority').value = task.priority;
             document.getElementById('task-status').value = task.status;
-            document.getElementById('task-assignee').value = task.assignee;
             document.getElementById('task-description').value = task.description;
             document.getElementById('task-notes').value = task.notes;
             document.getElementById('task-report-link').value = task.reportLink;
@@ -2188,8 +2371,7 @@ function openTaskModal(taskId, isManager) {
 
 function closeTaskModal() {
     document.getElementById('task-modal').classList.remove('active');
-    const pNew = document.getElementById('task-project-new');
-    if (pNew) { pNew.style.display = 'none'; pNew.value = ''; }
+    document.querySelectorAll('.combobox-dropdown.open').forEach(d => d.classList.remove('open'));
 }
 
 function saveTask(e) {
@@ -2197,15 +2379,35 @@ function saveTask(e) {
     const tasks = getTasks();
     const id = document.getElementById('task-id').value;
 
+    // Resolve project from combobox: hidden value if selected, else create from typed text if any
     let projectId = document.getElementById('task-project').value;
-    if (projectId === '__new__') {
-        const newName = document.getElementById('task-project-new').value.trim();
-        if (!newName) return;
+    const projectInput = document.getElementById('task-project-input');
+    const typedProj = (projectInput?.value || '').trim();
+    if (!projectId && typedProj) {
         const projects = getProjects();
-        const np = { id: generateId(), name: newName, description: '', color: '#'+Math.floor(Math.random()*0xFFFFFF).toString(16).padStart(6,'0') };
-        projects.push(np);
-        saveData(STORAGE_KEYS.projects, projects);
-        projectId = np.id;
+        const existing = projects.find(p => (p.name || '').toLowerCase() === typedProj.toLowerCase());
+        if (existing) {
+            projectId = existing.id;
+        } else {
+            const np = { id: generateId(), name: typedProj, description: '', color: '#'+Math.floor(Math.random()*0xFFFFFF).toString(16).padStart(6,'0') };
+            projects.push(np);
+            saveData(STORAGE_KEYS.projects, projects);
+            projectId = np.id;
+        }
+    }
+    if (!projectId) {
+        projectInput?.focus();
+        toast('יש לבחור או להקליד פרויקט', 'error');
+        return;
+    }
+
+    // Resolve assignee from combobox: hidden value if set, else try exact match by typed name
+    let assigneeId = document.getElementById('task-assignee').value;
+    const assigneeInput = document.getElementById('task-assignee-input');
+    const typedAssignee = (assigneeInput?.value || '').trim();
+    if (!assigneeId && typedAssignee) {
+        const match = getTeam().find(m => (m.name || '').toLowerCase() === typedAssignee.toLowerCase());
+        if (match) assigneeId = match.id;
     }
 
     let status = document.getElementById('task-status').value;
@@ -2217,7 +2419,7 @@ function saveTask(e) {
         projectId,
         priority,
         status,
-        assignee: document.getElementById('task-assignee').value,
+        assignee: assigneeId,
         description: document.getElementById('task-description').value,
         notes: document.getElementById('task-notes').value,
         reportLink: document.getElementById('task-report-link').value,
@@ -2444,7 +2646,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateDate();
     initNavigation();
     populateFilters();
-    initQuickAdd();
     renderToday();
     refreshBackupIndicator();
     updateBadges();

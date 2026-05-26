@@ -132,23 +132,22 @@
 
                 <div class="today-col today-col-side">
                     <div class="today-bottom-row">
-                        <div class="quick-add-card">
-                            <div class="quick-add-header">הוספה מהירה</div>
-                            <input type="text" id="quick-add-input" placeholder="הקלד משימה ולחץ Enter..." class="quick-add-input">
-                            <div class="quick-add-chips">
-                                <button class="chip chip-urgent" data-qa="priority" data-value="דחוף">דחוף</button>
-                                <button class="chip chip-high" data-qa="priority" data-value="גבוה">גבוה</button>
-                                <button class="chip chip-normal active" data-qa="priority" data-value="רגיל">רגיל</button>
+                        <div class="section my-reminders-section">
+                            <div class="section-header">
+                                <h3>תזכורות אישיות</h3>
                             </div>
-                            <select id="quick-add-project" class="quick-add-select"></select>
-                            <div class="quick-add-hint">Enter להוספה · Shift+Enter לניהול</div>
+                            <div class="my-reminders-add">
+                                <input type="text" id="my-reminder-input" placeholder="תזכורת חדשה..." onkeydown="if(event.key==='Enter'){event.preventDefault();addMyReminder()}">
+                                <button class="btn btn-primary btn-sm" onclick="addMyReminder()">+</button>
+                            </div>
+                            <div id="my-reminders-list" class="my-reminders-list"></div>
                         </div>
 
                         <div class="mini-stats" id="mini-stats"></div>
 
                         <div class="section reminders-section">
                             <div class="section-header">
-                                <h3>תזכורות</h3>
+                                <h3>דדליינים קרובים</h3>
                             </div>
                             <div id="reminders-list" class="reminders-list"></div>
                         </div>
@@ -272,11 +271,10 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label>פרויקט</label>
-                        <div style="display:flex;gap:8px;align-items:flex-end">
-                            <select id="task-project" required onchange="handleProjectSelect(this)" style="flex:1">
-                                <option value="">בחר פרויקט...</option>
-                            </select>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="openNewProjectModal()">+ חדש</button>
+                        <div class="combobox" id="task-project-combobox">
+                            <input type="text" id="task-project-input" class="combobox-input" placeholder="חפש או הקלד שם פרויקט חדש... (Enter)" autocomplete="off">
+                            <input type="hidden" id="task-project">
+                            <div class="combobox-dropdown" id="task-project-dropdown"></div>
                         </div>
                     </div>
                     <div class="form-group">
@@ -289,9 +287,11 @@
                     </div>
                     <div class="form-group" id="assignee-group">
                         <label>בניהול של</label>
-                        <select id="task-assignee">
-                            <option value="">בחר...</option>
-                        </select>
+                        <div class="combobox" id="task-assignee-combobox">
+                            <input type="text" id="task-assignee-input" class="combobox-input" placeholder="חפש איש צוות..." autocomplete="off">
+                            <input type="hidden" id="task-assignee">
+                            <div class="combobox-dropdown" id="task-assignee-dropdown"></div>
+                        </div>
                     </div>
                     <div class="form-group full-width">
                         <label>תיאור המשימה</label>
